@@ -1,4 +1,8 @@
+using Microsoft.EntityFrameworkCore;
+
 var builder = WebApplication.CreateBuilder(args);
+
+var DMSDBConnectionString = builder.Configuration.GetConnectionString("DMSDB");
 
 // Add services to the container.
 
