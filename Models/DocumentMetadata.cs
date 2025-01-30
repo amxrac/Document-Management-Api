@@ -10,8 +10,8 @@
         public DateTime LastModifiedDate { get; set;} = DateTime.Now;
         public string? MimeType { get; set; }
         public long FileSize { get; set; }
-        public List<string>? Tags { get; set; }
-        public List<string>? AccessControlList { get; set; }
+        public List<DocumentTag>? DocumentTags { get; set; }
+        public AccessControl? AccessControlList { get; set; }
         public DocumentContent? DocumentContent { get; set; }
 
     }
