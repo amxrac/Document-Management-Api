@@ -17,6 +17,8 @@ namespace DMS.Data
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            base.OnModelCreating(modelBuilder);
+
             modelBuilder.Entity<DocumentMetadata>()
                 .HasOne(d => d.DocumentContent)
                 .WithOne(c => c.DocumentMetadata)

@@ -8,6 +8,7 @@ namespace DMS.ViewModels
         public string Name { get; set; }
 
         [Required]
+        [EmailAddress(ErrorMessage = "Invalid email format.")]
         public string Email { get; set; }
 
         [Required]
@@ -17,7 +18,6 @@ namespace DMS.ViewModels
         [Required]
         [DataType(DataType.Password)]
         [Compare("Password", ErrorMessage = "Passwords don't match.")]
-        [Display(Name = "Confirm Password")]
         public string ConfirmPassword { get; set; }
     }
 }
