@@ -37,17 +37,31 @@ namespace DMS.Controllers
                 {
                     await _userManager.AddToRoleAsync(user, "Editor");
                     await _signInManager.SignInAsync(user, isPersistent: false);
+                    return Ok(new
+                    {
+                        message = "User registered successfully",
+                        user = new
+                        {
+                            email = user.Email,
+                            role = "Editor"
+                        }
+                    });
                 }
-
-                foreach (var error in result.Errors)
+                else
                 {
-                    ModelState.AddModelError(string.Empty, error.Description);
-                }
-
-                return Ok(new { message = "User registered successfully" });
+                    return BadRequest(new
+                    {
+                        message = "User registration failed",
+                        errors = result.Errors.Select(e => e.Description)
+                    });
+                }                               
             }
+            return BadRequest(new
+            {
+                message = "Validation failed",
+                errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)
+            });
         }
 
-        //seed roles
     }
 }
