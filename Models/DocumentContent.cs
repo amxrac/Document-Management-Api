@@ -9,6 +9,6 @@
         public string? Checksum { get; set; }
         public byte[]? Content { get; set; }
 
-        public DocumentMetadata? Metadata { get; set; }
+        public DocumentMetadata? DocumentMetadata { get; set; }
     }
 }

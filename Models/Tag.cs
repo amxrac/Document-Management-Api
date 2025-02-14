@@ -4,7 +4,6 @@
     {
         public int Id { get; set; }
         public string? Name { get; set; }
-        public List<DocumentTag>? DocumentTags { get; set; }
-
+        public List<DocumentTag>? DocumentTags { get; set; } 
     }
 }
