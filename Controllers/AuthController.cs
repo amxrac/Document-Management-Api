@@ -3,25 +3,31 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using DMS.Models;
 using DMS.ViewModels;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 namespace DMS.Controllers
 {
     [ApiController]
-    [Route("[Controller]")]
+    [Route("api/[Controller]")]
     public class AuthController : ControllerBase
     {
         private readonly AppDbContext _context;
         private readonly UserManager<AppUser> _userManager;
         private readonly SignInManager<AppUser> _signInManager;
+        private readonly IConfiguration _config;
 
-        public AuthController(AppDbContext context, UserManager<AppUser> userManager, SignInManager<AppUser> signInManager)
+        public AuthController(AppDbContext context, UserManager<AppUser> userManager, SignInManager<AppUser> signInManager, IConfiguration config)
         {
             _context = context;
             _userManager = userManager;
             _signInManager = signInManager;
+            _config = config;
         }
 
-        [HttpPost(Name = "register")]
+        [HttpPost("register")]
         public async Task<IActionResult> Register(RegisterVM model)
         {
             if (ModelState.IsValid)
@@ -62,6 +68,7 @@ namespace DMS.Controllers
                 errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)
             });
         }
+
 
     }
 }
