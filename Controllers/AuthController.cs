@@ -7,6 +7,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using DMS.Services;
 
 namespace DMS.Controllers
 {
@@ -18,13 +19,15 @@ namespace DMS.Controllers
         private readonly UserManager<AppUser> _userManager;
         private readonly SignInManager<AppUser> _signInManager;
         private readonly IConfiguration _config;
+        private readonly TokenGenerator _tokenGenerator;
 
-        public AuthController(AppDbContext context, UserManager<AppUser> userManager, SignInManager<AppUser> signInManager, IConfiguration config)
+        public AuthController(AppDbContext context, UserManager<AppUser> userManager, SignInManager<AppUser> signInManager, IConfiguration config, TokenGenerator tokenGenerator)
         {
             _context = context;
             _userManager = userManager;
             _signInManager = signInManager;
             _config = config;
+            _tokenGenerator = tokenGenerator;
         }
 
         [HttpPost("register")]
@@ -69,6 +72,34 @@ namespace DMS.Controllers
             });
         }
 
+        [HttpPost("login")]
+        public async Task<IActionResult> Login(LoginVM model)
+        {
+            if (ModelState.IsValid)
+            {
+                var user = await _userManager.FindByEmailAsync(model.Email);
+                if (user == null)
+                {
+                    return BadRequest(new { message = "Invalid email or password" });
+                }
+                var result = await _signInManager.CheckPasswordSignInAsync(user, model.Password, false);
+
+
+                if (result.Succeeded)
+                {
+                    var token = _tokenGenerator.GenerateToken(user);
+                    return Ok(new {Token = token});
+                }
+
+                return BadRequest(new { message = "Invalid email or password" });
+            }
+            return BadRequest(new
+            {
+                message = "Requesr failed",
+                errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)
+            });
+
+        }
 
     }
 }

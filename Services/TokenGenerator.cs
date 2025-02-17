@@ -22,7 +22,6 @@ namespace DMS.Services
             var claims = new List<Claim>()
             {
                 new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                new(JwtRegisteredClaimNames.Sub, user.Id),
                 new(JwtRegisteredClaimNames.Email, user.Email),
                 new(JwtRegisteredClaimNames.Name, user.Name),
             };
