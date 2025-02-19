@@ -87,8 +87,8 @@ namespace DMS.Controllers
 
                 if (result.Succeeded)
                 {
-                    var token = _tokenGenerator.GenerateToken(user);
-                    return Ok(new {Token = token});
+                    var token = await _tokenGenerator.GenerateToken(user);
+                    return Ok(new { token = token });
                 }
 
                 return BadRequest(new { message = "Invalid email or password" });

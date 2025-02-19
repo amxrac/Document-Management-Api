@@ -13,6 +13,7 @@ namespace DMS.Data
         public DbSet<DocumentContent> DocumentContent { get; set; }
         public DbSet<DocumentTag> DocumentTags { get; set; }
         public DbSet<Tag> Tags { get; set; }
+        public DbSet<AuditLog> AuditLogs { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
