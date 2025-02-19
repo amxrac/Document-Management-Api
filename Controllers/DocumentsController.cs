@@ -47,6 +47,17 @@ namespace DMS.Controllers
             return false;
         }
 
+        public string GetMimeType(string extension)
+        {
+            var types = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                { ".pdf", "application/pdf" },
+                { ".docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }
+        
+            };
+
+            return types.TryGetValue(extension, out var mimeType) ? mimeType : "application/octet-stream";
+        }
 
         [Authorize(Roles = "Admin,Editor")]
         [HttpPost]
@@ -100,7 +111,7 @@ namespace DMS.Controllers
                     FileName = null,
                     UserId = userId,
                     IsPublic = isPublic,
-                    MimeType = extension,
+                    MimeType = GetMimeType(extension),
                     FileSize = fileBytes.Length,
                     DocumentContent = new DocumentContent
                     {
@@ -151,7 +162,7 @@ namespace DMS.Controllers
                 return BadRequest(new { message = "Invalid id." });
             }
 
-            var documentMetadata = await _context.DocumentMetadata.FirstOrDefaultAsync(d => d.Id == id);
+            var documentMetadata = await _context.DocumentMetadata.AsNoTracking().FirstOrDefaultAsync(d => d.Id == id);
 
             if (documentMetadata == null)
             {
@@ -173,5 +184,36 @@ namespace DMS.Controllers
                 createdDate = documentMetadata.CreatedDate
             });
         }
+
+        [HttpGet("{id:int}/download")]
+        public async Task<IActionResult> GetDocument(int id)
+        {
+            if (id <= 0)
+            {
+                return BadRequest(new { message = "Invalid id." });
+            }
+
+            var document = await _context.DocumentMetadata.Include(d => d.DocumentContent).AsNoTracking().FirstOrDefaultAsync(d => d.Id == id);
+
+            if (document == null)
+            {
+                return NotFound(new { message = "Document not found." });
+            }
+
+            if (!document.IsPublic && !User.Identity.IsAuthenticated)
+            {
+                return Unauthorized(new { message = "You are not authorized to access this document." });
+            }
+
+            if (document.DocumentContent?.Content == null)
+            {
+                return NotFound(new { message = "Document not found." });
+            }
+
+            return File(document.DocumentContent.Content,
+                        document.MimeType ?? "application/octet-stream",
+                        document.FileName ?? "downloaded_file");
+        }
+
     }
 }
