@@ -3,6 +3,7 @@ using DMS.Models;
 using DMS.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using System.IdentityModel.Tokens.Jwt;
 using System.Reflection.Metadata;
 using System.Security.Claims;
@@ -12,7 +13,7 @@ namespace DMS.Controllers
 {
 
     [ApiController]
-    [Route("api/[Controller]")]
+    [Route("api/documents")]
     public class DocumentsController : ControllerBase
     {
         private readonly AppDbContext _context;
@@ -24,10 +25,32 @@ namespace DMS.Controllers
             _context = context;
             _tokenGenerator = tokenGenerator;
         }
-              
+
+        private bool IsValidFileType(byte[] fileBytes, out string detectedType)
+        {
+            detectedType = "Unknown";
+            if (fileBytes.Length < 4)
+                return false;
+
+            if (fileBytes[0] == 0x25 && fileBytes[1] == 0x50 && fileBytes[2] == 0x44 && fileBytes[3] == 0x46)
+            {
+                detectedType = "PDF";
+                return true;
+            }
+
+            if (fileBytes[0] == 0x50 && fileBytes[1] == 0x4B && fileBytes[2] == 0x03 && fileBytes[3] == 0x04)
+            {
+                detectedType = "DOCX";
+                return true;
+            }
+
+            return false;
+        }
+
+
         [Authorize(Roles = "Admin,Editor")]
-        [HttpPost("documents")]
-        public async Task<IActionResult> UploadFile(IFormFile file)
+        [HttpPost]
+        public async Task<IActionResult> UploadFile(IFormFile file, [FromForm] bool isPublic = false)
         {
             try
             {
@@ -50,10 +73,7 @@ namespace DMS.Controllers
                 {
                     return BadRequest(new { message = "Maximum file size is 5MB." });
                 }
-
-                string extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-                string fileName = Guid.NewGuid().ToString() + extension;
-
+                
                 byte[] fileBytes;
                 string checksum;
                 using (var ms = new MemoryStream())
@@ -74,11 +94,12 @@ namespace DMS.Controllers
                     checksum = BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
                 }
 
+                string extension = Path.GetExtension(file.FileName).ToLowerInvariant();
                 var documentMetadata = new DocumentMetadata
                 {
-                    FileName = fileName,
+                    FileName = null,
                     UserId = userId,
-                    IsPublic = false,
+                    IsPublic = isPublic,
                     MimeType = extension,
                     FileSize = fileBytes.Length,
                     DocumentContent = new DocumentContent
@@ -90,6 +111,10 @@ namespace DMS.Controllers
                 };
 
                 _context.DocumentMetadata.Add(documentMetadata);
+                await _context.SaveChangesAsync();
+
+
+                documentMetadata.FileName = documentMetadata.Id + extension;
                 await _context.SaveChangesAsync();
 
                 var auditLog = new AuditLog
@@ -104,9 +129,11 @@ namespace DMS.Controllers
 
                 return Ok(new
                 {
+                    id = documentMetadata.Id,
                     fileName = documentMetadata.FileName,
                     fileSize = documentMetadata.FileSize,
                     mimeType = documentMetadata.MimeType,
+                    IsPublic = isPublic,
                     createdDate = documentMetadata.CreatedDate
                 });
             }
@@ -116,25 +143,35 @@ namespace DMS.Controllers
             }
         }
 
-        private bool IsValidFileType(byte[] fileBytes, out string detectedType)
+        [HttpGet("{id:int}")]
+        public async Task<IActionResult> GetDocumentMetadata(int id)
         {
-            detectedType = "Unknown";
-            if (fileBytes.Length < 4)
-                return false;
-
-            if (fileBytes[0] == 0x25 && fileBytes[1] == 0x50 && fileBytes[2] == 0x44 && fileBytes[3] == 0x46)
+            if (id <= 0)
             {
-                detectedType = "PDF";
-                return true;
+                return BadRequest(new { message = "Invalid id." });
             }
 
-            if (fileBytes[0] == 0x50 && fileBytes[1] == 0x4B && fileBytes[2] == 0x03 && fileBytes[3] == 0x04)
+            var documentMetadata = await _context.DocumentMetadata.FirstOrDefaultAsync(d => d.Id == id);
+
+            if (documentMetadata == null)
             {
-                detectedType = "DOCX";
-                return true;
+                return NotFound(new { message = "Document not found." });
             }
 
-            return false;
+            if (!documentMetadata.IsPublic && !User.Identity.IsAuthenticated)
+            {
+                return Unauthorized(new { message = "You are not authorized to access this document." });
+            }
+
+            return Ok(new
+            {
+                id = documentMetadata.Id,
+                fileName = documentMetadata.FileName,
+                fileSize = documentMetadata.FileSize,
+                mimeType = documentMetadata.MimeType,
+                IsPublic = documentMetadata.IsPublic,
+                createdDate = documentMetadata.CreatedDate
+            });
         }
     }
 }
