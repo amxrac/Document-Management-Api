@@ -2,7 +2,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using DMS.Models;
-using DMS.ViewModels;
+using DMS.DTOs;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.IdentityModel.Tokens;
@@ -31,7 +31,7 @@ namespace DMS.Controllers
         }
 
         [HttpPost("register")]
-        public async Task<IActionResult> Register(RegisterVM model)
+        public async Task<IActionResult> Register(RegisterDTO model)
         {
             if (ModelState.IsValid)
             {
@@ -73,7 +73,7 @@ namespace DMS.Controllers
         }
 
         [HttpPost("login")]
-        public async Task<IActionResult> Login(LoginVM model)
+        public async Task<IActionResult> Login(LoginDTO model)
         {
             if (ModelState.IsValid)
             {

@@ -1,8 +1,8 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace DMS.ViewModels
+namespace DMS.DTOs
 {
-    public class RegisterVM
+    public class RegisterDTO
     {
         [Required]
         public string Name { get; set; }

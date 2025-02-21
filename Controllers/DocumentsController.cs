@@ -8,6 +8,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Reflection.Metadata;
 using System.Security.Claims;
 using System.Xml.Linq;
+using DMS.DTOs;
 
 namespace DMS.Controllers
 {
@@ -60,7 +61,7 @@ namespace DMS.Controllers
         }
 
         [Authorize(Roles = "Admin,Editor")]
-        [HttpPost]
+        [HttpPost("upload")]
         public async Task<IActionResult> UploadFile(IFormFile file, [FromForm] bool isPublic = false)
         {
             try
@@ -99,9 +100,9 @@ namespace DMS.Controllers
                     return BadRequest(new { message = $"Invalid file type detected: {detectedType}" });
                 }
 
-                using (var md5 = System.Security.Cryptography.MD5.Create())
+                using (var sha256 = System.Security.Cryptography.SHA256.Create())
                 {
-                    byte[] hash = md5.ComputeHash(fileBytes);
+                    byte[] hash = sha256.ComputeHash(fileBytes);
                     checksum = BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
                 }
 
@@ -213,6 +214,149 @@ namespace DMS.Controllers
             return File(document.DocumentContent.Content,
                         document.MimeType ?? "application/octet-stream",
                         document.FileName ?? "downloaded_file");
+        }
+
+        [Authorize(Roles = "Admin,Editor")]
+        [HttpPut("{id:int}")]
+        public async Task<IActionResult> UpdateDocumentMetadata(int id, [FromBody] UpdateDocumentMetadataDTO metadataDTO)
+        {
+            if (id <= 0)
+            {
+                return BadRequest(new { message = "Invalid id." });
+            }
+
+            var documentMetadata = await _context.DocumentMetadata.FirstOrDefaultAsync(d => d.Id == id);
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+
+            if (documentMetadata == null)
+            {
+                return NotFound(new { message = "Document not found." });
+            }
+
+            if (!string.IsNullOrEmpty(metadataDTO.FileName))
+            {
+                documentMetadata.FileName = metadataDTO.FileName;
+            }
+
+            if (metadataDTO.IsPublic.HasValue)
+            {
+                documentMetadata.IsPublic = metadataDTO.IsPublic.Value;
+            }
+
+            documentMetadata.LastModifiedDate = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            var auditLog = new AuditLog
+            {
+                Action = "Edit Document Metadata",
+                UserId = userId,
+                DocumentId = documentMetadata.Id
+            };
+
+            _context.AuditLogs.Add(auditLog);
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                id = documentMetadata.Id,
+                fileName = documentMetadata.FileName,
+                fileSize = documentMetadata.FileSize,
+                mimeType = documentMetadata.MimeType,
+                IsPublic = documentMetadata.IsPublic,
+                createdDate = documentMetadata.CreatedDate,
+                lastModifiedDate = documentMetadata.LastModifiedDate
+            });
+        }
+
+        [Authorize(Roles = "Admin,Editor")]
+        [HttpPut("{id:int}/upload")] 
+        public async Task<IActionResult> UpdateDocumentContent(int id, IFormFile file)
+        {
+            if (id <= 0)
+            {
+                return BadRequest(new { message = "Invalid id." });
+            }
+
+            var documentMetadata = await _context.DocumentMetadata.FirstOrDefaultAsync(d => d.Id == id);
+            var documentContent = await _context.DocumentContent.FirstOrDefaultAsync(d => d.Id == id);
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (documentMetadata == null)
+            {
+                return NotFound(new { message = "Document metadata not found." });
+            }
+
+
+            if (documentContent == null)
+            {
+                return NotFound(new { message = "Document not found." });
+            }
+
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest(new { message = "No file was uploaded." });
+            }
+
+            if (file.Length > 5 * 1024 * 1024)
+            {
+                return BadRequest(new { message = "Maximum file size is 5MB." });
+            }
+
+            byte[] fileBytes;
+            string checksum;
+            using (var ms = new MemoryStream())
+            {
+                await file.CopyToAsync(ms);
+                fileBytes = ms.ToArray();
+            }
+
+            bool isValidFile = IsValidFileType(fileBytes, out string detectedType);
+            if (!isValidFile)
+            {
+                return BadRequest(new { message = $"Invalid file type detected: {detectedType}" });
+            }
+
+            using (var sha256 = System.Security.Cryptography.SHA256.Create())
+            {
+                byte[] hash = sha256.ComputeHash(fileBytes);
+                checksum = BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
+            }
+
+            string extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+
+            documentMetadata.FileName = documentMetadata.Id + extension;
+            documentMetadata.UserId = userId;
+            documentMetadata.MimeType = GetMimeType(extension);
+            documentMetadata.FileSize = fileBytes.Length;
+            documentMetadata.LastModifiedDate = DateTime.UtcNow;
+
+
+            documentContent.Checksum = checksum;
+            documentContent.Content = fileBytes;
+
+
+
+            var auditLog = new AuditLog
+            {
+                Action = "Edit File Content",
+                UserId = userId,
+                DocumentId = documentMetadata.Id
+            };
+
+            _context.AuditLogs.Add(auditLog);
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                id = documentMetadata.Id,
+                fileName = documentMetadata.FileName,
+                fileSize = documentMetadata.FileSize,
+                mimeType = documentMetadata.MimeType,
+                IsPublic = documentMetadata.IsPublic,
+                createdDate = documentMetadata.CreatedDate
+            });
         }
 
     }
