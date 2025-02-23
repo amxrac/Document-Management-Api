@@ -25,6 +25,11 @@ namespace DMS.Data
                 .WithOne(c => c.DocumentMetadata)
                 .HasForeignKey<DocumentContent>(f => f.DocumentMetadataId);
 
+            modelBuilder.Entity<DocumentMetadata>()
+                .HasOne(d => d.User)
+                .WithMany()
+                .HasForeignKey(d => d.UserId);
+
             modelBuilder.Entity<DocumentTag>()
                 .HasOne(d => d.DocumentMetadata)
                 .WithMany(c => c.DocumentTags)

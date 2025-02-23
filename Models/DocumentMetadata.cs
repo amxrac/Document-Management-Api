@@ -4,6 +4,7 @@
     {
         public int Id { get; set; }
         public string? FileName { get; set; }
+        public AppUser User { get; set; }
         public string UserId { get; set; }
         public bool IsPublic { get; set; } = false;
         public DateTime CreatedDate { get; set; } = DateTime.Now;
