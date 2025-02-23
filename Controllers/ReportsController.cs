@@ -64,7 +64,8 @@ namespace DMS.Controllers
                     FileSize = d.FileSize,
                     IsPublic = d.IsPublic,
                     CreatedBy = d.User.UserName,
-                    Email = d.User.Email
+                    Email = d.User.Email,
+                    Tags = d.DocumentTags.Select(dt => dt.Tag.Name).ToList()
                 })
                 .ToListAsync();
         }
@@ -102,6 +103,7 @@ namespace DMS.Controllers
                 worksheet.Cell(1, 5).Value = "File Size (bytes)";
                 worksheet.Cell(1, 6).Value = "Is Public";
                 worksheet.Cell(1, 7).Value = "Created By";
+                worksheet.Cell(1, 9).Value = "Tags";
 
                 var headerRow = worksheet.Row(1);
                 headerRow.Style.Font.Bold = true;
@@ -126,6 +128,7 @@ namespace DMS.Controllers
                     worksheet.Cell(row, 6).Value = reportData[i].IsPublic;
                     worksheet.Cell(row, 7).Value = reportData[i].CreatedBy;
                     worksheet.Cell(row, 8).Value = reportData[i].Email;
+                    worksheet.Cell(row, 9).Value = string.Join(", ", reportData[i].Tags);
                 }
 
                 using (var stream = new MemoryStream())
@@ -152,7 +155,7 @@ namespace DMS.Controllers
         document.Add(title);
         document.Add(new Paragraph("\n"));
 
-        float[] columnWidths = { 40, 150, 80, 80, 60, 40, 80, 120 };
+        float[] columnWidths = { 40, 150, 80, 80, 60, 40, 80, 120, 150 };
         var table = new Table(UnitValue.CreatePointArray(columnWidths));
         table.SetWidth(UnitValue.CreatePercentValue(100));
 
@@ -161,7 +164,7 @@ namespace DMS.Controllers
             .SetFontSize(10);
 
         string[] headers = { "Doc ID", "File Name", "Created Date", "Last Modified",
-                           "Size (bytes)", "Public", "Created By", "Email" };
+                           "Size (bytes)", "Public", "Created By", "Email", "Tags" };
         foreach (var header in headers)
         {
             table.AddHeaderCell(
@@ -202,7 +205,10 @@ namespace DMS.Controllers
             
             table.AddCell(new Cell().Add(new Paragraph(item.Email))
                 .SetFontSize(9));
-        }
+
+            table.AddCell(new Cell().Add(new Paragraph(string.Join(", ", item.Tags)))
+        .SetFontSize(9));
+                }
 
         document.Add(table);
 

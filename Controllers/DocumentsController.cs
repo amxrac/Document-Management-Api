@@ -9,6 +9,7 @@ using System.Reflection.Metadata;
 using System.Security.Claims;
 using System.Xml.Linq;
 using DMS.DTOs;
+using static iText.Svg.SvgConstants;
 
 namespace DMS.Controllers
 {
@@ -62,7 +63,7 @@ namespace DMS.Controllers
 
         [Authorize(Roles = "Admin,Editor")]
         [HttpPost("upload")]
-        public async Task<IActionResult> UploadFile(IFormFile file, [FromForm] bool isPublic = false)
+        public async Task<IActionResult> UploadFile(IFormFile file, [FromForm] bool isPublic = false, [FromForm] List<string> tags = null)
         {
             try
             {
@@ -129,6 +130,26 @@ namespace DMS.Controllers
                 documentMetadata.FileName = documentMetadata.Id + extension;
                 await _context.SaveChangesAsync();
 
+                if (tags != null && tags.Any())
+                {
+                    var existingTags = await _context.Tags.Where(t => tags.Contains(t.Name)).ToListAsync();
+                    var newTags = tags.Except(existingTags.Select(t => t.Name)).Select(t => new Tag { Name = t }).ToList();
+
+                    _context.Tags.AddRange(newTags);
+                    await _context.SaveChangesAsync();
+
+                    var allTags = existingTags.Concat(newTags).ToList();
+                    var documentTags = allTags.Select(tag => new DocumentTag
+                    {
+                        DocumentMetadataId = documentMetadata.Id,
+                        TagId = tag.Id
+                    }).ToList();
+
+                    _context.DocumentTags.AddRange(documentTags);
+                    await _context.SaveChangesAsync();
+                }
+
+
                 var auditLog = new AuditLog
                 {
                     Action = "Upload",
@@ -146,7 +167,8 @@ namespace DMS.Controllers
                     fileSize = documentMetadata.FileSize,
                     mimeType = documentMetadata.MimeType,
                     IsPublic = isPublic,
-                    createdDate = documentMetadata.CreatedDate
+                    createdDate = documentMetadata.CreatedDate,
+                    tags = tags ?? new List<string>()
                 });
             }
             catch (Exception ex)
@@ -163,7 +185,8 @@ namespace DMS.Controllers
                 return BadRequest(new { message = "Invalid id." });
             }
 
-            var documentMetadata = await _context.DocumentMetadata.AsNoTracking().FirstOrDefaultAsync(d => d.Id == id);
+            var documentMetadata = await _context.DocumentMetadata.AsNoTracking().Include(d => d.DocumentTags)
+                .ThenInclude(dt => dt.Tag).FirstOrDefaultAsync(d => d.Id == id);
 
             if (documentMetadata == null)
             {
@@ -182,7 +205,8 @@ namespace DMS.Controllers
                 fileSize = documentMetadata.FileSize,
                 mimeType = documentMetadata.MimeType,
                 IsPublic = documentMetadata.IsPublic,
-                createdDate = documentMetadata.CreatedDate
+                createdDate = documentMetadata.CreatedDate,
+                tags = documentMetadata.DocumentTags?.Select(dt => dt.Tag.Name).ToList()
             });
         }
 
@@ -225,7 +249,8 @@ namespace DMS.Controllers
                 return BadRequest(new { message = "Invalid id." });
             }
 
-            var documentMetadata = await _context.DocumentMetadata.FirstOrDefaultAsync(d => d.Id == id);
+            var documentMetadata = await _context.DocumentMetadata.Include(d => d.DocumentTags)
+                .ThenInclude(dt => dt.Tag).FirstOrDefaultAsync(d => d.Id == id);
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
 
@@ -242,6 +267,40 @@ namespace DMS.Controllers
             if (metadataDTO.IsPublic.HasValue)
             {
                 documentMetadata.IsPublic = metadataDTO.IsPublic.Value;
+            }
+
+            if (metadataDTO.Tags.Any())
+            {
+                var existingTags = await _context.Tags
+                    .Where(t => metadataDTO.Tags.Contains(t.Name))
+                    .ToListAsync();
+
+                var existingTagIds = documentMetadata.DocumentTags.Select(dt => dt.TagId).ToHashSet();
+
+                var newTags = metadataDTO.Tags
+                    .Except(existingTags.Select(t => t.Name))
+                    .Select(tagName => new Tag { Name = tagName })
+                    .ToList();
+
+                if (newTags.Any())
+                {
+                    _context.Tags.AddRange(newTags);
+                    await _context.SaveChangesAsync();
+                }
+
+                var allTags = existingTags.Concat(newTags).ToList();
+
+                var newDocumentTags = allTags
+                    .Where(tag => !existingTagIds.Contains(tag.Id)) // Skip already linked tags
+                    .Select(tag => new DocumentTag
+                    {
+                        DocumentMetadataId = documentMetadata.Id,
+                        TagId = tag.Id
+                    })
+                    .ToList();
+
+                _context.DocumentTags.AddRange(newDocumentTags);
+                await _context.SaveChangesAsync();
             }
 
             documentMetadata.LastModifiedDate = DateTime.UtcNow;
@@ -266,7 +325,8 @@ namespace DMS.Controllers
                 mimeType = documentMetadata.MimeType,
                 IsPublic = documentMetadata.IsPublic,
                 createdDate = documentMetadata.CreatedDate,
-                lastModifiedDate = documentMetadata.LastModifiedDate
+                lastModifiedDate = documentMetadata.LastModifiedDate,
+                tags = metadataDTO.Tags
             });
         }
 

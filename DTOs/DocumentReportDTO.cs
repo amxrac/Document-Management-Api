@@ -10,5 +10,6 @@
         public bool IsPublic { get; set; }
         public string CreatedBy { get; set; }
         public string Email { get; set; }
+        public List<string> Tags { get; set; }
     }
 }
