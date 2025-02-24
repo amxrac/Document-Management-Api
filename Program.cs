@@ -73,6 +73,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.MapGet("/", () => "API is running successfully!");
+
 app.UseHttpsRedirection();
 
 app.UseAuthentication();
