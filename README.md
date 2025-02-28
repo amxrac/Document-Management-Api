@@ -17,7 +17,7 @@ This is a .NET 8 Web API for managing documents, users, and reports. It includes
 
 ## Tech Stack
 
-- **.NET 8
+- **.NET 8**
 - **SQL Server**
 - **Entity Framework Core**
 - **Identity Framework** (User Management)
