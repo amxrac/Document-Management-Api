@@ -51,6 +51,13 @@ namespace DMS.Controllers
             return Ok(usersDto);
         }
 
+        [HttpGet("tags")]
+        public async Task<IActionResult> GetTags()
+        {
+            var tagNames = await _context.Tags.Select(n => n.Name).ToListAsync();
+            return Ok(tagNames);
+        }
+
         private async Task<List<DocumentReportDTO>> GetDocumentReportData()
         {
             return await _context.DocumentMetadata.AsNoTracking()
