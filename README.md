@@ -27,7 +27,7 @@ This is a .NET 8 Web API for managing documents, users, and reports. It includes
 
 ### Prerequisites
 
-- **.NET 8
+- **.NET 8**
 - **SQL Server**
 
 ### Installation
